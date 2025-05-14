@@ -12,5 +12,11 @@ export const POINTS = {
   RIGHT_IRIS_LEFT: 469,
   RIGHT_IRIS_RIGHT: 471,
   LEFT_IRIS_LEFT: 474,
-  LEFT_IRIS_RIGHT: 476
+  LEFT_IRIS_RIGHT: 476,
+  MOUTH_CENTER: 13,
+  RIGHT_EYE_BORDER: [246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7, 33],
+  LEFT_EYE_BORDER: [362, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382]
 } as const
+
+// Межзрачковое расстояние для определения расстояния между пользователем и камерой
+export const IPD_MM = 63 

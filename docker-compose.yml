@@ -1,0 +1,75 @@
+version: '3.9'
+services:
+
+  hir-client:
+    container_name: hir-client
+    build:
+      context: client
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - 3001:3001
+    restart: unless-stopped
+    depends_on:
+      - hir-api
+
+  hir-api:
+    container_name: hir-api
+    build:
+      context: api
+      dockerfile: Dockerfile
+      target: production
+    env_file:
+      - ./api/production.env
+    ports:
+      - "3000:3000"
+    volumes:
+      - hir-api-upload:/upload
+      - hir-api-records:/records
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  terms-api:
+    container_name: terms-api
+    build:
+      context: terms
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+
+  postgres:
+    container_name: nestjs-postgres
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    env_file:
+      - docker.env
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-d", "hir" ]
+      interval: 15s
+      timeout: 20s
+      retries: 3
+      start_period: 10s
+
+  pgadmin:
+    container_name: nestjs-pgadmin
+    image: dpage/pgadmin4
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    env_file:
+      - docker.env
+
+volumes:
+  db-data:
+  pgadmin-data:
+  hir-api-upload:
+  hir-api-records:

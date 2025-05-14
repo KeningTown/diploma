@@ -1,0 +1,5 @@
+export { default as TermList } from './TermList/TermList'
+export { default as TermInfo } from './TermInfo/TermInfo'
+export { default as TermFormModal } from './TermFormModal/TermFormModal'
+export { default as TermDelete } from './TermDelete/TermDelete'
+export { default as TermGraphModal } from './TermGraphModal/TermGraphModal'

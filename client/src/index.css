@@ -1,0 +1,58 @@
+:root {
+  font-feature-settings:
+    'liga' 1,
+    'calt' 1;
+
+  /* -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility; */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  background-color: #f5f5f5;
+}
+
+.row-disabled > td:not(:first-child) > * {
+  opacity: 0.5;
+}
+
+.ant-notification-notice-with-icon > span {
+  font-size: 21px !important;
+}
+
+.ant-notification-notice-message {
+  font-size: 14px !important;
+  margin-bottom: 0 !important;
+  margin-right: 24px;
+}
+
+.ant-notification-notice-description:not(:empty) {
+  margin-top: 8px;
+}
+
+div:has(> .ant-form-item-hidden) {
+  display: none;
+}
+
+#faceContainer {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  max-width: 320px;
+}
+
+#faceContainer > * {
+  max-width: 100%;
+}
+
+#faceContainer video {
+  visibility: hidden;
+}

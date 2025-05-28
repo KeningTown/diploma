@@ -1,6 +1,6 @@
-import { Plane, Vector3 } from 'three'
+import { Matrix3, Plane, Vector3 } from 'three'
 
-import { CONSTRAINTS } from './FaceCamera.constants'
+import { CAMERA_PARAMS, CONSTRAINTS } from './FaceCamera.constants'
 
 import { getHypot, degToRad } from '../helpers'
 import { getFocalLength } from './FaceCamera.helpers'
@@ -54,7 +54,14 @@ export class FaceCamera {
     }
 
     this.stream.getVideoTracks()[0].stop()
-
     this.video.src = ''
+  }
+
+  getCameraIntrinsicMatrix(){
+    return new Matrix3().set(
+      CAMERA_PARAMS.INTRINSIC_PARAMS.xFocalLengthInPx, 0, CAMERA_PARAMS.INTRINSIC_PARAMS.PrincipalPoint.x,
+      0, CAMERA_PARAMS.INTRINSIC_PARAMS.yFocalLengthInPx, CAMERA_PARAMS.INTRINSIC_PARAMS.PrincipalPoint.y,
+      0, 0, 1
+    )
   }
 }

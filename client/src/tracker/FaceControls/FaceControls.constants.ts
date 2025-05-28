@@ -9,3 +9,6 @@ export const KALMAN_FILTER_OPTIONS = {
     covariance: [0.05, 0.05]
   }
 }
+export const REGRESSION_MODEL_WEIGTHS_LOCAL_STORAGE_KEY = "gaze_prediction_reggresion_weigths"
+
+export const GAZE_PREDICTION_MODEL_PATH = "/gazePredictionModel/model.json"

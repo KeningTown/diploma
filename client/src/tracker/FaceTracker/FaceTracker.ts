@@ -7,8 +7,6 @@ import { getIrisWidthInPx } from './FaceTracker.helpers'
 
 import { FaceCamera } from '../FaceCamera/FaceCamera'
 
-import {CAMERA_PARAMS, NORMALIZED_CAMERA_PARAMS} from '../constants'
-
 export class FaceTracker {
   landmarker: FaceLandmarker | undefined
   points = Array.from({ length: POINTS_NUMBER }, () => new Vector3())
@@ -20,18 +18,17 @@ export class FaceTracker {
 
   gaze = new Ray()
   intersection2 = new Vector3()
+  public hiddenCanvas!:HTMLCanvasElement;
+  public ctx!:CanvasRenderingContext2D
 
-    // Дополнительные canvas под отладку
-    public leftEyeCanvas?: HTMLCanvasElement;
-    public rightEyeCanvas?: HTMLCanvasElement;
-  
+  landmarksFound = false
+
   async init(wasmPath: string, modelAssetPath: string) {
     if (this.landmarker) {
       return
     }
 
     const wasmFileset = await FilesetResolver.forVisionTasks(wasmPath)
-
     this.landmarker = await FaceLandmarker.createFromOptions(wasmFileset, {
       baseOptions: {
         modelAssetPath,
@@ -42,15 +39,10 @@ export class FaceTracker {
       outputFacialTransformationMatrixes: true,
       outputFaceBlendshapes: false
     })
-
-      // создаём скрытый canvas
-      this.hiddenCanvas = document.createElement('canvas');
-      this.hiddenCanvas.width  = 640;  // или camera.width, если известна заранее
-      this.hiddenCanvas.height = 480;  // или camera.height
-      this.ctx = this.hiddenCanvas.getContext('2d')!;    
   }
 
   update(camera: FaceCamera) {
+    this.landmarksFound = false
     if (!camera.video || !this.landmarker) {
       return
     }
@@ -61,16 +53,17 @@ export class FaceTracker {
     } = this.landmarker.detectForVideo(camera.video, performance.now())
 
     if (!landmarks) return
+    this.landmarksFound = true
 
-    // Вероятно придется поменять, но мб и нет
     landmarks.forEach(({ x, y, z }, i) => {
       this.points[i].set(
-        (x - 0.5) * camera.width,
-        (y - 0.5) * -camera.height,
-        z * -camera.width
+        x * camera.width,
+        y * camera.height,
+        z
       )
     })
 
+    // console.log("landmarks", this.points)
     this.transform.fromArray(transformationMatrix.data)
     this.direction.setFromMatrixColumn(this.transform, 2)
 
@@ -81,15 +74,36 @@ export class FaceTracker {
 
     this.irisWidthInPx = getIrisWidthInPx(this.points)
 
+    // создаём скрытый canvas
+    this.hiddenCanvas = document.createElement('canvas');
+    this.hiddenCanvas.width  = camera.width;
+    this.hiddenCanvas.height = camera.height;
+    this.ctx = this.hiddenCanvas.getContext('2d')!;    
+
     this.ctx.clearRect(0, 0, camera.width, camera.height);
     this.ctx.drawImage(camera.video, 0, 0, camera.width, camera.height);
+  }
 
-    // Вырезаем области глаз
+  public cropLeftEye() : {
+    image:HTMLCanvasElement,
+    startX: number,
+    startY: number,
+    width: number,
+    height: number
+  }{
     const leftEyePoints = [...POINTS.LEFT_EYE_BORDER] as number[];
-    const leftEyeImg = this.cropEye(leftEyePoints);
+    return this.cropEye(leftEyePoints)
+  }
 
+  public cropRigthEye(): {
+    image:HTMLCanvasElement,
+    startX: number,
+    startY: number,
+    width: number,
+    height: number
+  }{
     const rightEyePoints = [...POINTS.RIGHT_EYE_BORDER] as number[];
-    const rightEyeImg = this.cropEye(rightEyePoints); 
+    return this.cropEye(rightEyePoints);  
   }
 
     /**
@@ -97,7 +111,13 @@ export class FaceTracker {
    * @param indices — массив индексов лендмарков (this.points) для одной области (глаз)
    * @returns canvas с вырезанным регионом
    */
-    private cropEye(indices: number[]): HTMLCanvasElement {
+    private cropEye(indices: number[]): {
+      image:HTMLCanvasElement,
+      startX: number,
+      startY: number,
+      width: number,
+      height: number
+    } {
       // находим границы бокса
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const idx of indices) {
@@ -107,9 +127,11 @@ export class FaceTracker {
         maxX = Math.max(maxX, p.x);
         maxY = Math.max(maxY, p.y);
       }
-      // немного расширим область на 10% для гарантии охвата
-      const padX = (maxX - minX) * 0.1;
-      const padY = (maxY - minY) * 0.1;
+
+      // добавление паддинга для области глаз
+      // определяется эксперементально
+      const padX = (maxX - minX) * 0;
+      const padY = (maxY - minY) * 1;
       minX = Math.max(0, minX - padX);
       minY = Math.max(0, minY - padY);
       maxX = Math.min(this.hiddenCanvas.width,  maxX + padX);
@@ -131,7 +153,13 @@ export class FaceTracker {
         0, 0, eyeCanvas.width, eyeCanvas.height // куда рисуем
       );
   
-      return eyeCanvas;
+      return {
+        image: eyeCanvas,
+        startX: minX,
+        startY: minY,
+        height: h,
+        width: w
+      };
     }  
 
   // находит координаты центров глаз как среднее значение координат через значение points
@@ -159,35 +187,40 @@ export class FaceTracker {
     let rightEyeBorderPointsCount:number = POINTS.RIGHT_EYE_BORDER.length
     let rightEyeCenter = new Vector3(rightX/rightEyeBorderPointsCount, rightY/rightEyeBorderPointsCount, rightZ/rightEyeBorderPointsCount)
 
-
     return {
         leftEyeCenter,
         rightEyeCenter
     }
-  }
+  } 
 
   // Возвращает координаты определяющие систему координат головы пользователя
-  getHeadVectors() {
-    // 1. Получаем ключевые точки лица
-    let {rightEyeCenter, leftEyeCenter} = this.getEyesCenterCoordinates()
+  getHeadAxis(): { 
+      xAxis: Vector3, 
+      yAxis: Vector3, 
+      zAxis: Vector3,
+    } {
+    const rigthEyeInnerCorner = this.points[POINTS.RIGTH_EYE_INNER_CORNER]
+    const leftEyeInnerCorner = this.points[POINTS.LEFT_EYE_INNER_CORNER]
     const mouthCenter = this.points[POINTS.MOUTH_CENTER]
-    const betweenEyesCoordinates = this.points[POINTS.BETWEEN_EYES]
 
     // Ось X: от правого глаза к левому
     const xAxis = new Vector3()
-      .subVectors(leftEyeCenter, rightEyeCenter)
+      .subVectors(leftEyeInnerCorner, rigthEyeInnerCorner)
       .normalize()
 
     // Ось Y: от центра между глаз к центру рта
-      const yAxis = new Vector3()
-      .subVectors(betweenEyesCoordinates, mouthCenter)
-      .normalize()
+    const betweenEyes = new Vector3()
+      .addVectors(rigthEyeInnerCorner, leftEyeInnerCorner)
+      .multiplyScalar(0.5);
+
+    const yAxis = new Vector3()
+      .subVectors(mouthCenter, betweenEyes)
+      .normalize();
 
     // Ось Z: векторное произведение X и Y
     const zAxis = new Vector3()
       .crossVectors(xAxis, yAxis)
       .normalize()
-
 
     return { 
       xAxis, 
@@ -196,16 +229,12 @@ export class FaceTracker {
     }
   }
 
-  // надо использовать формулу для определения межзрачкового расстояния из диплома
-  // D = f*Dimg/Dconst
-  calculateScale() {
-    const {leftEyeCenter, rightEyeCenter} = this.getEyesCenterCoordinates()
-
-    let distanceInPx = rightEyeCenter.distanceTo(leftEyeCenter)
+  calculateDistanceBetweenCameraAndUser(leftEyeCenter:Vector3, rightEyeCenter: Vector3, xCameraFocalLength :number) :number {
+    const dx = rightEyeCenter.x - leftEyeCenter.x;
+    const dy = rightEyeCenter.y - leftEyeCenter.y;
+    const ipdPx = Math.sqrt(dx*dx + dy*dy);
 
     // Масштабирование с учетом целевого расстояния
-    return {
-      scale: Math.round((IPD_MM / distanceInPx)/CAMERA_PARAMS.INTRINSIC_PARAMS.xFocalLengthInMM),
-    }
+    return (IPD_MM / ipdPx)*xCameraFocalLength
   }
 }

@@ -11,4 +11,5 @@ export type TrackerSettingsState = {
   diagonalFov: number
   autoScroll: boolean
   autoScrollSpeed: AutoScrollSpeed
+  isTrained: boolean
 }

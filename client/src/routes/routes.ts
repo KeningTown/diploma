@@ -34,3 +34,5 @@ export const ADMIN_DICTIONARY_ANALYSIS = `${ADMIN_DICTIONARY}/analysis`
 
 export const ADMIN_RECORDS = `${ADMIN_ROOT}/records`
 export const ADMIN_RECORD = `${ADMIN_RECORDS}/:id`
+
+export const EYE_TRACKER_LEARNING = `/train`

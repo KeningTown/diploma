@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json ./
 COPY yarn.lock ./
 
-RUN rm -rf node_modules && yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfile
 
 COPY . .
 

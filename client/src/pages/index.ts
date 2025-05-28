@@ -20,3 +20,5 @@ export { default as AdminRecordsPage } from './AdminRecordsPage/AdminRecordsPage
 export { default as AdminRecordPage } from './AdminRecordPage/AdminRecordPage'
 
 export { default as NotFoundPage } from './NotFoundPage/NotFoundPage'
+
+export { default as TrainingPage } from './TrainingPage/TrainingPage'

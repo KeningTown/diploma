@@ -5,8 +5,8 @@ WORKDIR /usr/src/app
 COPY --chown=node:node package.json ./
 COPY --chown=node:node yarn.lock ./
 
-RUN rm -rf node_modules && yarn install --frozen-lockfile
-
+RUN yarn install --frozen-lockfile
+    
 COPY --chown=node:node . .
 
 USER node

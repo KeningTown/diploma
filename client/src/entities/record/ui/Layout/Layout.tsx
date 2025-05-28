@@ -139,11 +139,10 @@ const Layout: React.FC<Props> = ({
       window.faceControls.stop()
       return
     }
-
     window.faceControls
       .init('faceContainer', '/landmarker', '/landmarker/face_landmarker.task')
       .then(async () => {
-        await window.faceControls.start()
+        await window.faceControls.startPredictionLoop()
         window.faceControls.camera.setDiagonalFov(trackerSettings.diagonalFov)
       })
   }, [

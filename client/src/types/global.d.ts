@@ -16,4 +16,5 @@ type Heat = {
 declare interface Window {
   h337: Heat
   faceControls: FaceControls
+  cv :any
 }

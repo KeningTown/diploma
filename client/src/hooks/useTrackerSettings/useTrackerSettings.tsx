@@ -19,8 +19,13 @@ export const useTrackerSettings = () => {
     const localState = localStorage.getItem(LOCAL_STORAGE_KEY)
 
     if (localState) {
-      setState(JSON.parse(localState))
-      return
+      try{
+        setState(JSON.parse(localState))
+        return
+      } catch{
+        setState(DEFAULT_STATE)
+        saveState(DEFAULT_STATE)
+      }
     }
 
     saveState(DEFAULT_STATE)

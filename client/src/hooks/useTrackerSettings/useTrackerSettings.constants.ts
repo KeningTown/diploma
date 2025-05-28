@@ -4,12 +4,13 @@ import {
 } from './useTrackerSettings.types'
 
 export const DEFAULT_STATE: TrackerSettingsState = {
-  trackMouse: true,
+  trackMouse: false,
   trackGaze: false,
   screenDiagonal: 16,
   diagonalFov: 80,
   autoScroll: false,
-  autoScrollSpeed: AutoScrollSpeed.MEDIUM
+  autoScrollSpeed: AutoScrollSpeed.MEDIUM,
+  isTrained: false
 }
 
 export const AUTO_SCROLL_SPEED_VALUE = {

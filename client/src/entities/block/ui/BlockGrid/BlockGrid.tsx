@@ -10,6 +10,10 @@ import { useTrackerSettings } from '@/hooks/useTrackerSettings'
 import BlockGridView from '../BlockGridView/BlockGridView'
 import { Blocks } from './components'
 
+// debug eye normalization
+// @ts-ignore 
+import {EyeOverlay} from '../../../record/ui/Layout/EyeOverlay'
+
 type WordDataset = {
   weight?: string
   synonyms?: string
@@ -134,6 +138,7 @@ const BlockGrid: React.FC<Props> = ({
         getWordValue={getWordValue}
         addGaze={addGaze}
       />
+      <EyeOverlay/>
     </BlockGridView>
   )
 }

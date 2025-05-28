@@ -1,11 +1,12 @@
 FROM python:3.11.3-alpine
-
 WORKDIR /app
 
-COPY . /app
-
+# Сначала только зависимости — слой кешируется, если requirements.txt не менялся
+COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-EXPOSE 3002
+# Теперь остальной код
+COPY . /app
 
-CMD ["fastapi", "run", "main.py", "--port", "3002"]
+EXPOSE 3002
+CMD ["uvicorn", "main:app", "--port", "3002"]

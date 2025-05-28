@@ -219,9 +219,9 @@ const Routing: React.FC = () => {
             </Permission.PermissionChecker>
           }
         />
-
         <Route path="*" element={<Page.NotFoundPage />} />
       </Route>
+      <Route path={route.EYE_TRACKER_LEARNING} element={<Page.TrainingPage />} />
     </Routes>
   )
 }

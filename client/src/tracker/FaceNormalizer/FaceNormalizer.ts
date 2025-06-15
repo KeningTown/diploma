@@ -1,8 +1,9 @@
 import { Matrix4, Vector3, Ray, Matrix3 } from 'three'
 
-import {NORMALIZED_CAMERA_PARAMS} from '../constants'
+import {NORMILIZED_USER_TO_CAMERA_DISTANCE} from '../constants'
+import {IntrinsicParams} from '../helpers'
+
 import { FaceTracker } from '../FaceTracker/FaceTracker'
-import { Vector } from 'three/examples/jsm/Addons.js'
 
 export class FaceNormalizer {
   tracker: FaceTracker
@@ -12,12 +13,16 @@ export class FaceNormalizer {
 
   transform = new Matrix4()
   direction = new Vector3()
-  irisWidthInPx = 0
   ray = new Ray()
   intersection = new Vector3()
-
+  intrinsicParams!:IntrinsicParams
+  
   constructor(){
     this.tracker = new FaceTracker
+  }
+
+  setIntrinsicParams(params: IntrinsicParams):void{
+    this.intrinsicParams = params
   }
 
   public getWarpPerspectiveMatrix(headAxis :{
@@ -27,21 +32,16 @@ export class FaceNormalizer {
   }, 
   userToCameraDistance :number,
   intrinsicCameraParams :Matrix3,
-) :{W: Matrix3, R: Matrix3}{
+  ) :{W: Matrix3, R: Matrix3}{
     const {xNormAxis, yNormAxis, zNormAxis} = this.getNormalizedCameraAxis(headAxis)
     
-    // debug
-    // console.log("Вектора задающие систему координат нормализованной камеры:", {xNormAxis, yNormAxis, zNormAxis})
-    // console.log("Проверка на ортогональность.\nСкалярные произведения векторов:\nxNormAxis*yNormAxis", xNormAxis.dot(yNormAxis), "\nxAxis*zAxis", xNormAxis.dot(zNormAxis), "\nxNormAxis*zNormAxis", yNormAxis.dot(zNormAxis))
-    // console.log("Проверка на единичность векторов:\nДлина xNormAxis:", xNormAxis.length(), "\nДлина yNormAxis:", yNormAxis.length(),"\nДлина zNormAxis:", zNormAxis.length())
-
     const rotationMatrix = new Matrix3().set(
       xNormAxis.x, xNormAxis.y, xNormAxis.z,
       yNormAxis.x, yNormAxis.y, yNormAxis.z,  
       zNormAxis.x, zNormAxis.y, zNormAxis.z   
     );
 
-    const scale = NORMALIZED_CAMERA_PARAMS.USER_TO_CAMERA_DISTANCE/userToCameraDistance  
+    const scale = NORMILIZED_USER_TO_CAMERA_DISTANCE/userToCameraDistance  
     const scaleMatrix = new Matrix3().set(
       1, 0, 0,
       0, 1, 0,
@@ -50,10 +50,10 @@ export class FaceNormalizer {
 
     const M = new Matrix3().multiplyMatrices(scaleMatrix, rotationMatrix)
     
-    const params = NORMALIZED_CAMERA_PARAMS.INTRINSIC_PARAMS
+    const params = this.intrinsicParams
     const normalizedCameraIntrinsicParams = new Matrix3().set(
-      params.xFocalLengthInMM, 0, params.PrincipalPoint.x,
-      0, params.yFocalLengthInMM, params.PrincipalPoint.y,
+      params.focalLength.x, 0, params.principlePoint.x,
+      0, params.focalLength.y, params.principlePoint.y,
       0, 0, 1
     )
 
@@ -79,7 +79,6 @@ export class FaceNormalizer {
     const zNormAxis = headAxis.zAxis.clone().normalize()
 
     const xProj = headAxis.xAxis.clone()
-      // вычитаем компоненту вдоль Z
       .sub(zNormAxis.clone().multiplyScalar(headAxis.xAxis.dot(zNormAxis)))
       .normalize();
     const xNormAxis = xProj;
@@ -130,29 +129,20 @@ export class FaceNormalizer {
         throw(e)
       }
     
-      // Конвертация warpMatrix в формат OpenCV
-      var warpElements = warpMatrix.toArray(); // возвращает [ e00, e10, e20, e01, e11, e21, e02, e12, e22 ]
+      var warpElements = warpMatrix.toArray(); 
       const warpData = [
         warpElements[0], warpElements[3], warpElements[6],
         warpElements[1], warpElements[4], warpElements[7],
         warpElements[2], warpElements[5], warpElements[8]
       ];
       var W = window.cv.matFromArray(3, 3, window.cv.CV_64F, warpData);
-
       for (let i = 0; i < 9; i++) {
         W.data64F[i] /= W.data64F[8];
       }
-
       var dst = new window.cv.Mat();
       const dsize = new window.cv.Size(src.cols, src.rows);
-      
       try{
-        window.cv.warpPerspective(
-          src, dst, W, dsize,
-          window.cv.INTER_LINEAR,
-          window.cv.BORDER_CONSTANT,
-          new window.cv.Scalar(255,0,0,255) 
-        );
+        window.cv.warpPerspective(src, dst, W, dsize,window.cv.INTER_LINEAR, window.cv.BORDER_CONSTANT, new window.cv.Scalar(255,0,0,255));
       } catch (e){
           console.error('warpPerspective failed', {
             err: e,
@@ -163,7 +153,6 @@ export class FaceNormalizer {
             Wdata32F: Array.from(W.data32F),
           });
       }
-
       leftCroppedEye = this.cropROI(dst, W, leftEyeROI)
       
       const leftEyeCanvas = document.createElement('canvas');
@@ -194,12 +183,12 @@ export class FaceNormalizer {
     yRoiStart: number,
     roiWidth: number,
     roiHeigth: number
-}): {
-  cropped: any
-  width: number
-  height: number 
-}{
-  try{
+  }): {
+    cropped: any
+    width: number
+    height: number 
+  }{
+    try{
     var roiSrcCorners = window.cv.matFromArray(
       4, 1, window.cv.CV_32FC2,
       [
@@ -278,11 +267,6 @@ export class FaceNormalizer {
 
     const RTransposed = R.clone().transpose()
 
-    console.log("original angels", {
-      pitch, yaw, R, RTransposed
-    })
-
-
     const originVector = gazeVector.applyMatrix3(RTransposed)
     
     const originalPitch = Math.asin(-originVector.y);
@@ -290,33 +274,4 @@ export class FaceNormalizer {
 
     return {pitch: originalPitch, yaw: origianlYaw}
   }
-
-  unnormalizeAngelsToVector(pitch: number, yaw:number, R: Matrix3):Vector3{
-    // const cy = Math.cos(yaw), sy = Math.sin(yaw);
-    // const cp = Math.cos(pitch), sp = Math.sin(pitch);
-
-    // vx = cp * sy
-    // vy = sp
-    // vz = cp * cy
-    const Rinv = R.invert()
-     
-    // return new Vector3(cp * sy, sp, cp * cy).normalize().clone().applyMatrix3(Rinv).normalize();
-
-    const x = -Math.cos(pitch) * Math.sin(yaw);
-    const y = -Math.sin(pitch);
-    const z = -Math.cos(pitch) * Math.cos(yaw);
-
-    const gazeVector = new Vector3(x, y, z).normalize()
-
-    // const RTransposed = R.clone().transpose()
-
-    const originVector = gazeVector.applyMatrix3(Rinv).normalize()
-    
-    console.log("original vectors", {
-      pitch, yaw, R, Rinv, originVector
-    })
-
-    return originVector
-  }
-
 }

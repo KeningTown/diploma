@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Modal from '../../components/Modal/Modal'
 
 import { useNavigate, useLocation } from "react-router-dom";
-import { LOCAL_STORAGE_KEY } from "@/hooks/useTrackerSettings";
+import { LOCAL_STORAGE_KEY, useTrackerSettings } from "@/hooks/useTrackerSettings";
 
 import { GazeFeatures } from "@/tracker/FaceControls/FaceControls";
 import { generateFullTrajectory, getGridPoints, IPoint } from "./TraningData";
@@ -11,9 +11,9 @@ import { generateFullTrajectory, getGridPoints, IPoint } from "./TraningData";
 const WAIT_BEFORE_MOVE_MS = 5000;
 
 const STATIC_MARKERS: IPoint[] = getGridPoints(4, 4)
-const TRAJECTORY_DURATION_MS = 240000;
+const TRAJECTORY_DURATION_MS = 300000;
 
-const MOUSE_POLL_FPS = 10; // Какое-то значение, раз в секунду можно задать, например, 10
+const MOUSE_POLL_FPS = 10;
 
 const TrainingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +22,12 @@ const TrainingPage: React.FC = () => {
   const fromPath = (location.state as any)?.from || '/';
   
   // Состояния:
-  const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
+  // 1 - статичные маркеры
+  // 2 - динамичный маркер
+  // 3 - статичные маркеры, голова повернута влево
+  // 4 - статичные маркеры, голова повернута вправо
+  // 5  - дополнительный этап с мышкой
+  const [stage, setStage] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [showStageModal, setShowStageModal] = useState(true);
 
   // В stage === 1 мы показываем статические маркеры;
@@ -63,6 +68,8 @@ const TrainingPage: React.FC = () => {
     y: TRAJECTORY_POINTS[0].y,
   });
 
+  const { trackerSettings } = useTrackerSettings();
+
   const [disableConfirm, setDisableConfirm] = useState(true);
 
   // useRef для хранения времени старта траектории
@@ -81,10 +88,35 @@ const TrainingPage: React.FC = () => {
   useEffect(() => {
     window.faceControls.stop()
     window.faceControls
-      .init('faceContainer', '/landmarker', '/landmarker/face_landmarker.task')
+      .init(
+        'faceContainer', 
+        '/landmarker', 
+        '/landmarker/face_landmarker.task',
+      )
       .then(async () => {
+        if (window.faceControls.getIsLearningMode()){
+          const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            parsed.isTrained = false;
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(parsed));
+          }
+        }
+        
+        window.faceControls.setIntrinsicParams({
+          focalLength:{
+            x: trackerSettings.xFocalLength,
+            y: trackerSettings.yFocalLength
+          },
+          principlePoint: {
+            x: trackerSettings.xPrinciplePoint,
+            y: trackerSettings.yPrinciplePoint
+          }
+        })
+        
         window.faceControls.startCamera().then(()=>{
-        // Обрабатываем первый кадр без каких либо координат из-за того, что почему-то первый кадр обрабатывается дольше последующих
+          // Обработка первого кадра из-за долгой обработки 
+          // (причины по которым первый кадр обрабатывается дольше последующих не установлены)
           window.faceControls.getGazeFeatures().then(()=>{
             setDisableConfirm(false)
           })
@@ -100,7 +132,7 @@ const TrainingPage: React.FC = () => {
   // --------------- Этап 1: Работа со статическими маркерами ---------------
   // Показываем Modal («правила сбора этап 1»). После нажатия ok → отображаем маркеры.
 
-  const handleStage1Confirm = () => {
+  const handleStaticConfirm = () => {
     setShowStageModal(false);
   };
 
@@ -126,14 +158,30 @@ const TrainingPage: React.FC = () => {
 
   // Если все маркеры кликнуты → переход к этапу 2
   useEffect(() => {
-    for (let i = 0; i < staticMarkersCoordinates.length; i++) {
-      if (!staticMarkersCoordinates[i].clicked){
-        return
-      }
+    if (![1, 3, 4].includes(stage)) {
+      return;
     }
 
-    setStage(2);
+    const allClicked = staticMarkersCoordinates.every((pt) => pt.clicked);
+    if (!allClicked) {
+      return;
+    }
+
+    // сбросим кликнутые флаги, чтобы на следующей стадии
+    // пользователь снова мог «поймать» все точки
+    setStaticMarkersCoordinates((prev) =>
+      prev.map((m) => ({ ...m, clicked: false }))
+    );
+
     setShowStageModal(true);
+    setStage((prev) => {
+      switch (prev) {
+        case 1: return 2;
+        case 3: return 4;
+        case 4: return 5;
+        default: return prev;
+      }
+    });
   }, [staticMarkersCoordinates]);
 
   // --------------- Этап 2: Динамический маркер ---------------
@@ -142,11 +190,7 @@ const TrainingPage: React.FC = () => {
 
   const handleStage2Confirm = () => {
     setShowStageModal(false);
-    
-    // обработка первого кадра. 
-    // требуется из-за того, что faceControls обрабатывает первый кадр дольше, чем последующие  
-    window.faceControls.getGazeFeatures()
-    
+    console.log("TRAJECTORY_POINTS", TRAJECTORY_POINTS)
     // Запускаем таймер: через 5 сек marker начинает двигаться
     moveTimeoutRef.current = window.setTimeout(() => {
       setDynamicMoving(true);
@@ -179,7 +223,7 @@ const TrainingPage: React.FC = () => {
 
     setDynamicMarkerPos({ x, y });
 
-    if (frameCount %8 == 0){
+    if (frameCount %15 == 0){
       window.faceControls.getGazeFeatures()
       .then((gazeFeatures) =>{
         if (gazeFeatures){
@@ -205,30 +249,22 @@ const TrainingPage: React.FC = () => {
       }
     }, [dynamicMoving]);
 
-  // --------------- Этап 3: Тренировка модели ---------------
-  const trainRegressionModel = () => {
+    // обучение модели
+    const traintPolynomialRegressionModel = () => {
     let allData = [...trainingData, ...dynamicData, ...additionalData];
-    // for (let i = 0; i < superData.length; i++){
-    //   allData = [...allData, ...superData[i]] 
-    // }
-
     if (allData.length === 0) {
       console.warn("Нет данных для обучения!");
       return;
     }
-    console.log("allData", allData)
 
     const gazesFeatures: GazeFeatures[] = []
     const screenCoordinates: {x:number, y:number}[] = []
     for (let i = 0; i < allData.length; i++) {
       const data = allData[i];
       gazesFeatures.push(data.gazeFeatures)
-      screenCoordinates.push({
-        x: data.target.x,
-        y: data.target.y
-      })
+      screenCoordinates.push(data.target)
     }
-    
+
     window.faceControls.learnRegressionModel(gazesFeatures, screenCoordinates)
 
     try {
@@ -244,13 +280,13 @@ const TrainingPage: React.FC = () => {
   };
 
   const handleStage3Exit = () => {
-    trainRegressionModel()
+    traintPolynomialRegressionModel()
     navigate(fromPath);
   };
 
   const handleProceedAdditional = () => {
     setShowStageModal(false);
-    setStage(4);
+    setStage(5);
   };
 
   // --------------- Этап 4: Дополнительное обучение ---------------
@@ -320,7 +356,7 @@ const TrainingPage: React.FC = () => {
 
   // Хендлер подтверждения выхода из дополнительного этапа
   const handleConfirmExitAdditional = () => {
-    trainRegressionModel()
+    traintPolynomialRegressionModel()
     navigate(fromPath);
   };
 
@@ -351,13 +387,13 @@ const TrainingPage: React.FC = () => {
       {/* 1. Если мы на этапе 1 и modal открыт → показываем этап1-инструкцию */}
       {stage === 1 && showStageModal && (
         <Modal
-          title="Этап 1: Сбор статических точек"
+          title="Этап 1: Статичные маркеры"
           text="Вам будут показаны несколько маркеров. Необходимо смотря на маркеры кликнуть на каждый из них. Нажмите 'ОК', чтобы начать."
-          onConfirm={handleStage1Confirm}
+          onConfirm={handleStaticConfirm}
           onCancel={() => {
             // Если пользователь отменил на этом этапе, возвращаемся назад
             navigate(fromPath);
-          }}
+          }}  
           confirmText="ОК"
           cancelText="Отмена"
           confirmDisabled={disableConfirm}
@@ -405,7 +441,7 @@ const TrainingPage: React.FC = () => {
       {/* 3. Если мы на этапе 2 и modal открыт → показываем этап 2-инструкцию */}
       {stage === 2 && showStageModal && (
         <Modal
-          title="Этап 2: Сбор динамических точек"
+          title="Этап 2: Движущийся маркер"
           text={`На экране появится один маркер. Через ${WAIT_BEFORE_MOVE_MS /
             1000} секунд он начнёт движение. Необходимо наблюдать за маркером на протяжении всего времени его движения. Нажмите 'ОК', чтобы начать.`}
           onConfirm={handleStage2Confirm}
@@ -472,10 +508,106 @@ const TrainingPage: React.FC = () => {
                   }}
                 />
               </div>
+       )}
+
+      {stage === 3 && showStageModal && (
+        <Modal
+          title="Этап 3: Статические точки, поворот головы влево"
+          text="Условия прохождения аналогичны этапу 1. Требуется повернуть голов немного влево и прокликать все маркеры в данном положении. Нажмите 'ОК', чтобы начать."
+          onConfirm={handleStaticConfirm}
+          confirmText="ОК"
+          confirmDisabled={disableConfirm}
+        />
       )}
 
+      {/* 2. Если мы на этапе 1, modal закрыт → рисуем статические маркеры, пока пользователь не кликнул на все */}
+      {stage === 3 && !showStageModal && (
+        <>
+          {staticMarkersCoordinates.map((pt, idx) =>
+            pt.clicked ? null : (
+              <div
+                key={idx}
+                onClick={() => handleStaticMarkerClick(idx)}
+                style={{
+                  position: "absolute",
+                  left: pt.x - 15,
+                  top: pt.y - 15,
+                  width: 30,
+                  height: 30,
+                  background: "rgb(0,123,255)",
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  zIndex: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {/* Внутренний белый кружок диаметром ~ половина внешнего */}
+                <div
+                  style={{
+                    width: 15,
+                    height: 15,
+                    background: "white",
+                    borderRadius: "50%",
+                  }}
+                />
+              </div>
+            )
+          )}
+        </>
+      )}
+
+      {stage === 4 && showStageModal && (
+        <Modal
+          title="Этап 4: Статические точки, поворот головы вправо"
+          text="Условия прохождения аналогичны этапу 3. На данном этапе требуется повернуть голову вправо. Нажмите 'ОК', чтобы начать."
+          onConfirm={handleStaticConfirm}
+          confirmText="ОК"
+          confirmDisabled={disableConfirm}
+        />
+      )}
+
+      {/* 2. Если мы на этапе 1, modal закрыт → рисуем статические маркеры, пока пользователь не кликнул на все */}
+      {stage === 4 && !showStageModal && (
+        <>
+          {staticMarkersCoordinates.map((pt, idx) =>
+            pt.clicked ? null : (
+              <div
+                key={idx}
+                onClick={() => handleStaticMarkerClick(idx)}
+                style={{
+                  position: "absolute",
+                  left: pt.x - 15,
+                  top: pt.y - 15,
+                  width: 30,
+                  height: 30,
+                  background: "rgb(0,123,255)",
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  zIndex: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {/* Внутренний белый кружок диаметром ~ половина внешнего */}
+                <div
+                  style={{
+                    width: 15,
+                    height: 15,
+                    background: "white",
+                    borderRadius: "50%",
+                  }}
+                />
+              </div>
+            )
+          )}
+        </>
+      )}       
+
       {/* Этап 3: модалка для дополнительного этапа */}
-      {stage === 3 && showStageModal && (
+      {stage === 5 && showStageModal && (
         <Modal  
           title="Калибровка завершена"
           text="Основные этапы калибровки трекера завершены. Дополнительный этап обучения включает в себя наблюдение за курсором мышки. Пробел - включить/остановить отслеживание мышки, Esc - вызвать модальное окно для выхода"
@@ -487,7 +619,7 @@ const TrainingPage: React.FC = () => {
       )}
 
       {/* Этап 4: доп. обучение */}
-      {stage === 4 && (
+      {stage === 5 && (
         <>
           {/* Метка, показывающая, включен ли трекинг */}
           <div
@@ -509,7 +641,7 @@ const TrainingPage: React.FC = () => {
       )}
       
       {/* Модалка выхода из доп. обучения */}
-      {stage === 4 && showExitModal && (
+      {stage === 5 && showExitModal && (
         <Modal
           title="Завершить дополнительное обучение?"
           text="Вы действительно хотите завершить дополнительное обучение и сохранить собранные данные?"

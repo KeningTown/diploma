@@ -8,7 +8,6 @@ import {
 } from '@/hooks/useTrackerSettings'
 
 import { Icon, FormContent, Button } from '@/ui'
-// import Modal from '@/components/Modal/Modal'
 const { confirm } = Modal;
 
 type Props = {
@@ -39,13 +38,30 @@ const TrackerSettings: React.FC<Props> = ({
 
   const handleSubmit = useCallback(
     (data: TrackerSettingsState) => {
+      if (data.trackGaze) {
+        const { xFocalLength, yFocalLength, xPrinciplePoint, yPrinciplePoint } = data;
+        if (
+          xFocalLength === 0 ||
+          yFocalLength === 0 ||
+          xPrinciplePoint === 0 ||
+          yPrinciplePoint === 0
+        ) {
+          Modal.warning({
+            title: 'Невалидные данные',
+            content: 'Поля фокусного расстояния и координат центральной точки не могут быть нулевыми.',
+            okText: 'Понятно'
+          });
+          return;
+        }
+      }
+
       data.isTrained = false
       if (state.isTrained){
         data.isTrained = true
       }
 
       // Если пользователь выбрал «Отслеживать взгляд» 
-      // и при этом модель ранее НЕ обучена (isTrained === false) → показываем confirm.
+      // и при этом модель ранее не обучена (isTrained === false) → показываем confirm.
       if (data.trackGaze && !state.isTrained) {
         confirm({
           title: 'Калибровка трекера',
@@ -53,8 +69,8 @@ const TrackerSettings: React.FC<Props> = ({
           okText: 'Да, перейти',
           cancelText: 'Нет',
           onOk() {
-            onClose(); 
             onApply(data)
+            onClose(); 
             // Переходим на страницу тренировки; запомним откуда пришли
             navigate('/train', { state: { from: location.pathname } });
           },
@@ -99,12 +115,35 @@ const TrackerSettings: React.FC<Props> = ({
             <Form.Item name="screenDiagonal" label="Диагональ экрана (дюймы)">
               <InputNumber />
             </Form.Item>
-          )}
-          {/* {trackGazeValue && (
-            <Form.Item name="diagonalFov" label="Угол обзора камеры (градусы)">
-              <InputNumber />
-            </Form.Item>
-          )} */}
+          )} 
+          {trackGazeValue && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Form.Item label="Фокусное расстояние (пиксели)">
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Form.Item name="xFocalLength" noStyle>
+                    <InputNumber placeholder="X" />
+                  </Form.Item>
+                  <Form.Item name="yFocalLength" noStyle>
+                    <InputNumber placeholder="Y" />
+                  </Form.Item>
+                </div>
+              </Form.Item>
+            </div>
+          )} 
+          {trackGazeValue && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Form.Item label="Координаты основной точки на изображении">
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Form.Item name="xPrinciplePoint" noStyle>
+                    <InputNumber placeholder="X" />
+                  </Form.Item>
+                  <Form.Item name="yPrinciplePoint" noStyle>
+                    <InputNumber placeholder="Y" />
+                  </Form.Item>
+                </div>
+              </Form.Item>
+            </div>
+          )} 
           <Form.Item noStyle name="autoScroll" valuePropName="checked">
             <Checkbox>Автопрокрутка</Checkbox>
           </Form.Item>

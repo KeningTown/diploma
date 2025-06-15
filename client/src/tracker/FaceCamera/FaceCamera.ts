@@ -1,9 +1,9 @@
 import { Matrix3, Plane, Vector3 } from 'three'
 
-import { CAMERA_PARAMS, CONSTRAINTS } from './FaceCamera.constants'
+import { CONSTRAINTS } from './FaceCamera.constants'
+import {IntrinsicParams} from '../helpers'
 
 import { getHypot, degToRad } from '../helpers'
-import { getFocalLength } from './FaceCamera.helpers'
 
 export class FaceCamera {
   video: HTMLVideoElement | undefined
@@ -13,13 +13,11 @@ export class FaceCamera {
   aspectRatio = 0
   diagonal = 0
   diagonalFov = 0
-  focalLength = 0
   plane = new Plane(new Vector3(0, 0, -1))
+  intrinsicParams!:IntrinsicParams
 
   setDiagonalFov(value: number) {
     this.diagonalFov = degToRad(value)
-    this.focalLength = getFocalLength(this.diagonal, this.diagonalFov)
-    this.plane.constant = this.focalLength
   }
 
   async init(container: HTMLElement) {
@@ -30,6 +28,10 @@ export class FaceCamera {
     this.video = document.createElement('video')
 
     container.appendChild(this.video)
+  }
+
+  setIntrinsicParams(params: IntrinsicParams):void{
+    this.intrinsicParams = params
   }
 
   async start() {
@@ -59,8 +61,8 @@ export class FaceCamera {
 
   getCameraIntrinsicMatrix(){
     return new Matrix3().set(
-      CAMERA_PARAMS.INTRINSIC_PARAMS.xFocalLengthInPx, 0, CAMERA_PARAMS.INTRINSIC_PARAMS.PrincipalPoint.x,
-      0, CAMERA_PARAMS.INTRINSIC_PARAMS.yFocalLengthInPx, CAMERA_PARAMS.INTRINSIC_PARAMS.PrincipalPoint.y,
+      this.intrinsicParams.focalLength.x, 0, this.intrinsicParams.principlePoint.x,
+      0, this.intrinsicParams.focalLength.y, this.intrinsicParams.principlePoint.y,
       0, 0, 1
     )
   }

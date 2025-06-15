@@ -10,7 +10,11 @@ export const DEFAULT_STATE: TrackerSettingsState = {
   diagonalFov: 80,
   autoScroll: false,
   autoScrollSpeed: AutoScrollSpeed.MEDIUM,
-  isTrained: false
+  isTrained: false,
+  xFocalLength: 950,
+  yFocalLength: 950,
+  xPrinciplePoint: 640,
+  yPrinciplePoint: 360
 }
 
 export const AUTO_SCROLL_SPEED_VALUE = {

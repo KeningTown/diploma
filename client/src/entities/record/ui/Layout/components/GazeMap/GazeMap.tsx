@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+  import React, { useMemo } from 'react'
 import { Line } from 'react-konva'
 
 import { UseWordGazeMap } from '@/hooks/useWordGazeMap'

@@ -138,7 +138,8 @@ const BlockGrid: React.FC<Props> = ({
         getWordValue={getWordValue}
         addGaze={addGaze}
       />
-      <EyeOverlay/>
+      {/*дебаг айтрекера. Если раскоментировать, то при прочтении документа появятся канвасы с доп информацией*/}
+      {/* <EyeOverlay/>  */}
     </BlockGridView>
   )
 }

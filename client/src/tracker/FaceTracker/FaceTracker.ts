@@ -60,10 +60,8 @@ export class FaceTracker {
         x * camera.width,
         y * camera.height,
         z
-      )
-    })
+      )})
 
-    // console.log("landmarks", this.points)
     this.transform.fromArray(transformationMatrix.data)
     this.direction.setFromMatrixColumn(this.transform, 2)
 
@@ -131,7 +129,7 @@ export class FaceTracker {
       // добавление паддинга для области глаз
       // определяется эксперементально
       const padX = (maxX - minX) * 0;
-      const padY = (maxY - minY) * 1;
+      const padY = (maxY - minY) * 0.5;
       minX = Math.max(0, minX - padX);
       minY = Math.max(0, minY - padY);
       maxX = Math.min(this.hiddenCanvas.width,  maxX + padX);
@@ -175,7 +173,11 @@ export class FaceTracker {
     }
 
     let leftEyeBorderPointsCount:number = POINTS.LEFT_EYE_BORDER.length
-    let leftEyeCenter = new Vector3(leftX/leftEyeBorderPointsCount, leftY/leftEyeBorderPointsCount, leftZ/leftEyeBorderPointsCount)
+    let leftEyeCenter = new Vector3(
+      leftX/leftEyeBorderPointsCount, 
+      leftY/leftEyeBorderPointsCount, 
+      leftZ/leftEyeBorderPointsCount
+    )
 
     for (let i = 0; i < POINTS.RIGHT_EYE_BORDER.length; i++) {
       const point = this.points[POINTS.RIGHT_EYE_BORDER[i]]
@@ -185,12 +187,12 @@ export class FaceTracker {
     }
 
     let rightEyeBorderPointsCount:number = POINTS.RIGHT_EYE_BORDER.length
-    let rightEyeCenter = new Vector3(rightX/rightEyeBorderPointsCount, rightY/rightEyeBorderPointsCount, rightZ/rightEyeBorderPointsCount)
-
-    return {
-        leftEyeCenter,
-        rightEyeCenter
-    }
+    let rightEyeCenter = new Vector3(
+      rightX/rightEyeBorderPointsCount, 
+      rightY/rightEyeBorderPointsCount, 
+      rightZ/rightEyeBorderPointsCount
+    )
+    return {leftEyeCenter, rightEyeCenter}
   } 
 
   // Возвращает координаты определяющие систему координат головы пользователя
@@ -229,12 +231,15 @@ export class FaceTracker {
     }
   }
 
-  calculateDistanceBetweenCameraAndUser(leftEyeCenter:Vector3, rightEyeCenter: Vector3, xCameraFocalLength :number) :number {
+  calculateDistanceBetweenCameraAndUser(
+    leftEyeCenter:Vector3, 
+    rightEyeCenter: Vector3, 
+    xCameraFocalLength :number
+  ) :number {
     const dx = rightEyeCenter.x - leftEyeCenter.x;
     const dy = rightEyeCenter.y - leftEyeCenter.y;
     const ipdPx = Math.sqrt(dx*dx + dy*dy);
 
-    // Масштабирование с учетом целевого расстояния
     return (IPD_MM / ipdPx)*xCameraFocalLength
   }
 }

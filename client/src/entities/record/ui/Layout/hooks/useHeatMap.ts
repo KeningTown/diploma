@@ -18,9 +18,7 @@ export const useHeatMap = (show: boolean) => {
       }
 
       let max = 0
-
       const points: Record<string, number> = {}
-
       gazes.forEach(([x, y, v]) => {
         const key = `${Math.round(x)}_${Math.round(y)}`
 
@@ -44,15 +42,12 @@ export const useHeatMap = (show: boolean) => {
       })
 
       const heat = window.h337.create({ container })
-
       heat.setData({
         min: 0,
         max,
         data
       })
-
       heatMap.current = heat._renderer.canvas
-
       setVisibility(false)
     },
     [setVisibility]

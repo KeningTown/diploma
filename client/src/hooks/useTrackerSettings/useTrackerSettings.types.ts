@@ -9,6 +9,10 @@ export type TrackerSettingsState = {
   trackGaze: boolean
   screenDiagonal: number
   diagonalFov: number
+  xFocalLength: number
+  yFocalLength: number
+  xPrinciplePoint: number
+  yPrinciplePoint: number
   autoScroll: boolean
   autoScrollSpeed: AutoScrollSpeed
   isTrained: boolean

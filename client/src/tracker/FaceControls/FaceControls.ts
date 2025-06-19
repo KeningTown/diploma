@@ -17,7 +17,6 @@ import { FaceCamera } from '../FaceCamera/FaceCamera'
 import { FaceTracker } from '../FaceTracker/FaceTracker'
 import { FaceNormalizer } from '../FaceNormalizer/FaceNormalizer'
 import { loadOpenCV } from './FaceControls.helpers'
-import MLR  from "ml-regression-multivariate-linear";
 import { GazePredictor } from '../GazePredictor/GazePredictor'
 import { PolynomialRegressionModel } from '../PolynomialRegressionModel/PolynomialRegressionModel'
 import { IntrinsicParams, Point2D } from '../helpers'
@@ -46,7 +45,6 @@ export class FaceControls {
   polynomialRegressionModel: PolynomialRegressionModel  
   irisWidth = DEFAULT_IRIS_WIDTH
   animation: number | undefined
-  regressionModel!: MLR
   target = new Vector3()
   kalman = new KalmanFilter(KALMAN_FILTER_OPTIONS)
   kalmanState: KalmanState

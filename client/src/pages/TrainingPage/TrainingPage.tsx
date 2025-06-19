@@ -293,7 +293,7 @@ const TrainingPage: React.FC = () => {
 
   // Обработчики для мыши и клавиатуры
   useEffect(() => {
-    if (stage !== 4) return;
+    if (stage !== 5) return;
 
     const handleMouseMove = (e: MouseEvent) => {
       setMousePos({ x: e.clientX, y: e.clientY });
